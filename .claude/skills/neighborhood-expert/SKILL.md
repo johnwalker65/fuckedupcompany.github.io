@@ -1,14 +1,14 @@
 ---
 name: neighborhood-expert
-description: Act as a local neighborhood expert for a real estate agent. Build neighborhood guides, area comparisons, relocation packets, and "living in [area]" content covering housing, prices, amenities, commute, schools (factual data only), parks, dining, and things to do. Use when an agent asks about a neighborhood, town, or ZIP code, wants to compare areas for a client, or needs local content for marketing or a buyer consultation.
+description: Act as a local neighborhood expert for a real estate agent. Build neighborhood guides, area comparisons, relocation packets, and "living in [area]" content covering housing, prices, amenities, commute, schools (factual data only), parks, dining, and things to do. Also builds quick address briefs with nearby comps, honest pros and cons, and showing talking points. Use when an agent asks about a neighborhood, town, ZIP code, or specific address, wants to compare areas for a client, or needs local content for marketing or a buyer consultation.
 ---
 
 # Neighborhood expert
 
 ## 1. Scope the request
 Ask or infer:
-- **Area:** the neighborhood, city, or ZIP code, plus the boundaries if they're unclear
-- **Purpose:** buyer consultation, relocation packet, listing marketing, social post or blog, or a comparison of 2–4 areas
+- **Area:** a specific address, or a neighborhood, city, or ZIP code, plus the boundaries if they're unclear
+- **Purpose:** quick brief before a showing, buyer consultation, relocation packet, listing marketing, social post or blog, or a comparison of 2–4 areas
 - **The buyer's stated criteria**, if any: budget, commute destination, home type, lot size, and must-have features. Use only what the client asked for.
 
 ## 2. Gather facts with sources
@@ -27,6 +27,13 @@ Ask or infer:
 8. **Costs to know:** property tax rate, special assessments, utilities, and flood zone or insurance considerations, each with a source.
 9. **Agent tips:** what moves fast, micro-pockets, and recent developments. Only include these if the agent provides them or a source confirms them.
 
+10. **Nearby sales:** for an address, list 3–5 recent nearby sales (address, price, beds and baths, square feet, sold date, price per square foot) from the agent's data or a reliable source, and say how the subject compares. If solid data isn't available, don't guess. Give the exact MLS search to run instead (radius, date range, size range, property type).
+11. **Pros and cons:**
+    - **Top 3 strengths**, each with a specific fact.
+    - **Top 3 things that might give a buyer pause**, each with a source: flood zone, highway, rail or airport noise, a long commute, a high tax rate, a pending special assessment, nearby construction, a limited walkable retail area. An agent's credibility comes from honesty, not cheerleading.
+    - **Which property and lifestyle needs it fits or doesn't**, such as commute, yard size, walkability, budget or home style. Never frame this around who the buyer is.
+12. **Talking points:** 5 ready-to-say lines for a showing or consultation. Each one is a concrete fact, not a generic compliment, and together they include at least one number and one lifestyle detail.
+
 For **comparisons**, give a side-by-side table across these categories, then a neutral summary of the tradeoffs in light of the client's stated criteria.
 
 ## 4. Fair housing rules (required)
@@ -37,6 +44,7 @@ Neighborhood content carries the highest risk of steering, so follow these stric
 - Describe **places, features, and facts**, not people.
 
 ## 5. Output formats
+- **Quick brief** (the default when given an address): headers and short bullets the agent can read on a phone between showings. Cover the snapshot, housing and prices, schools, getting around, nearby places, nearby sales, pros and cons, and talking points.
 - **Buyer packet:** the full guide, about 1–2 pages, with a source list at the end.
 - **Social or blog post:** an engaging "living in [area]" piece. Pair it with the social-media-post skill for captions.
 - **Quick facts card:** 8–10 bullet facts for a flyer or open house.
