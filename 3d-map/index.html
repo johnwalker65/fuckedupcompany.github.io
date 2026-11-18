@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D Property Tour</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root {
+    --accent: #e8572a;
+    --accent-2: #2a7de8;
+    --glass: rgba(17, 20, 26, 0.78);
+    --ink: #f5f6f8;
+    --ink-dim: #b9bec8;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0f1115; color: var(--ink); font-family: var(--font); overflow: hidden; }
+  #map { position: absolute; inset: 0; }
+
+  .glass { background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; }
+
+  /* Listing card */
+  .card { position: absolute; top: 16px; left: 16px; padding: 14px 16px; max-width: 320px; z-index: 2; }
+  .card .k { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .card .t { font-size: 20px; font-weight: 700; margin-top: 4px; line-height: 1.2; }
+  .card .s { font-size: 13px; color: var(--ink-dim); margin-top: 4px; }
+  .card .stats { display: flex; gap: 14px; margin-top: 10px; font-size: 13px; }
+  .card .stats b { display: block; font-size: 16px; }
+
+  /* Caption */
+  .caption { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); padding: 12px 20px; text-align: center; z-index: 2; min-width: 240px; max-width: calc(100% - 32px); transition: opacity .35s; }
+  .caption .k { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .caption .t { font-size: 22px; font-weight: 700; margin-top: 2px; }
+  .caption .s { font-size: 14px; color: var(--ink-dim); margin-top: 2px; }
+
+  /* Controls */
+  .controls { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 8px; z-index: 3; }
+  .controls button { font: 600 13px var(--font); color: var(--ink); background: var(--glass); border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+  .controls button:hover { background: rgba(40,44,52,.9); }
+  .controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0,0,0,.25); z-index: 3; }
+  .progress div { height: 100%; width: 0; background: var(--accent); }
+  .badge { position: absolute; top: 16px; right: 16px; z-index: 2; padding: 6px 10px; font-size: 11px; color: var(--ink-dim); }
+
+  /* End card */
+  .endcard { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 4; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(10,12,16,.78), rgba(10,12,16,.93)); }
+  .endcard .box { text-align: center; padding: 28px 32px; }
+  .endcard .k { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .endcard .t { font-size: 34px; font-weight: 800; margin: 8px 0 4px; }
+  .endcard .s { font-size: 16px; color: var(--ink-dim); }
+  .endcard .cta { display: inline-block; margin-top: 18px; padding: 12px 22px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 700; }
+  .endcard .agent { margin-top: 14px; font-size: 14px; color: var(--ink-dim); }
+
+  /* Map markers */
+  .pin { position: relative; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+  .pin .tag { background: var(--accent); color: #fff; font: 700 13px var(--font); padding: 6px 10px; border-radius: 10px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .pin .stem { width: 2px; height: 26px; background: var(--accent); }
+  .pin .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 0 rgba(232,87,42,.6); }
+  .place { display: flex; align-items: center; gap: 6px; pointer-events: none; transition: transform .25s, opacity .25s; opacity: .85; }
+  .place .n { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-2); color: #fff; font: 700 12px var(--font); display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,.35); }
+  .place .l { background: rgba(255,255,255,.95); color: #1a1d23; font: 600 12px var(--font); padding: 4px 8px; border-radius: 8px; white-space: nowrap; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+  .place.active { opacity: 1; transform: scale(1.18); }
+  .place.active .n { background: var(--accent); }
+  .ring-label { font: 600 11px var(--font); color: #1a1d23; background: rgba(255,255,255,.85); padding: 2px 6px; border-radius: 6px; pointer-events: none; }
+
+  /* Video mode: no controls, larger type */
+  body.video { --u: min(1vh, 1vw); }
+  body.video .controls, body.video .progress { display: none; }
+  body.video .card { top: calc(3 * var(--u)); left: calc(3 * var(--u)); padding: calc(2 * var(--u)) calc(2.4 * var(--u)); max-width: calc(46 * var(--u)); }
+  body.video .card .k { font-size: calc(1.5 * var(--u)); } body.video .card .t { font-size: calc(2.9 * var(--u)); } body.video .card .s { font-size: calc(1.8 * var(--u)); }
+  body.video .card .stats { font-size: calc(1.8 * var(--u)); } body.video .card .stats b { font-size: calc(2.3 * var(--u)); }
+  body.video .caption { bottom: calc(7 * var(--u)); padding: calc(1.6 * var(--u)) calc(3 * var(--u)); }
+  body.video .caption .k { font-size: calc(1.6 * var(--u)); } body.video .caption .t { font-size: calc(3.4 * var(--u)); } body.video .caption .s { font-size: calc(2 * var(--u)); }
+  body.video .badge { top: calc(3 * var(--u)); right: calc(3 * var(--u)); font-size: calc(1.4 * var(--u)); }
+  body.video .endcard .t { font-size: calc(5 * var(--u)); } body.video .endcard .s { font-size: calc(2.2 * var(--u)); } body.video .endcard .k { font-size: calc(1.7 * var(--u)); }
+  body.video .endcard .cta { font-size: calc(2.2 * var(--u)); } body.video .endcard .agent { font-size: calc(2 * var(--u)); }
+
+  @media (max-width: 600px) {
+    .card { left: 12px; right: 12px; top: 12px; max-width: none; padding: 10px 12px; }
+    .card .t { font-size: 17px; }
+    .badge { display: none; }
+    .caption { bottom: 64px; }
+    .caption .t { font-size: 18px; }
+    .controls { right: 12px; left: 12px; justify-content: center; }
+  }
+  @media (prefers-reduced-motion: reduce) { .place { transition: none; } }
+</style>
+</head>
+<body>
+<div id="map" role="img" aria-label="3D map tour of the property and nearby places"></div>
+
+<div class="card glass" id="card">
+  <div class="k" id="cardKicker"></div>
+  <div class="t" id="cardTitle"></div>
+  <div class="s" id="cardSub"></div>
+  <div class="stats" id="cardStats"></div>
+</div>
+<div class="badge glass" id="badge"></div>
+
+<div class="caption glass" id="caption" aria-live="polite">
+  <div class="k" id="capK"></div>
+  <div class="t" id="capT"></div>
+  <div class="s" id="capS"></div>
+</div>
+
+<div class="endcard" id="endcard">
+  <div class="box">
+    <div class="k" id="endK"></div>
+    <div class="t" id="endT"></div>
+    <div class="s" id="endS"></div>
+    <div class="cta" id="endCta"></div>
+    <div class="agent" id="endAgent"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="btnPlay" type="button">Pause</button>
+  <button id="btnRestart" type="button">Restart</button>
+  <button id="btnExplore" type="button">Explore</button>
+</div>
+<div class="progress"><div id="bar"></div></div>
+
+<script>
+/* ============================================================
+   EDIT THIS BLOCK for each property. Coordinates are [lng, lat].
+   Only use places and coordinates you have verified.
+   ============================================================ */
+const CONFIG = {
+  sample: true, // shows a "Sample listing" badge; set false for a real listing
+  property: {
+    kicker: "Sample listing",
+    title: "Bouldin Creek Bungalow",
+    subtitle: "Bouldin Creek · Austin, TX",
+    coords: [-97.7547, 30.2563],
+    price: "$875,000",
+    stats: [["3", "Beds"], ["2", "Baths"], ["1,850", "Sq ft"]],
+  },
+  places: [
+    { name: "Zilker Park", type: "Park", coords: [-97.7729, 30.2669] },
+    { name: "Barton Springs Pool", type: "Swimming", coords: [-97.7712, 30.2640] },
+    { name: "Lady Bird Lake Trail", type: "Trail", coords: [-97.7520, 30.2648] },
+    { name: "Texas State Capitol", type: "Downtown", coords: [-97.7404, 30.2747] },
+  ],
+  rings: [0.5, 1], // miles; [] to hide
+  agent: { name: "[Agent Name]", brokerage: "[Brokerage]", phone: "[Phone]" },
+  endCta: "Schedule a private showing",
+  style: "https://tiles.openfreemap.org/styles/liberty",
+};
+/* ============================================================ */
+
+const params = new URLSearchParams(location.search);
+const VIDEO = params.get("mode") === "video";
+if (VIDEO) document.body.classList.add("video");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---------- helpers ----------
+const R_MI = 3958.8;
+const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
+function miles(a, b) {
+  const dLat = rad(b[1] - a[1]), dLng = rad(b[0] - a[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R_MI * Math.asin(Math.sqrt(h));
+}
+function bearingDeg(a, b) {
+  const y = Math.sin(rad(b[0] - a[0])) * Math.cos(rad(b[1]));
+  const x = Math.cos(rad(a[1])) * Math.sin(rad(b[1])) - Math.sin(rad(a[1])) * Math.cos(rad(b[1])) * Math.cos(rad(b[0] - a[0]));
+  return deg(Math.atan2(y, x));
+}
+function circle(c, rMi, n = 96) {
+  const pts = [];
+  const dLat = rMi / 69.0, dLng = rMi / (69.17 * Math.cos(rad(c[1])));
+  for (let i = 0; i <= n; i++) { const a = 2 * Math.PI * i / n; pts.push([c[0] + dLng * Math.cos(a), c[1] + dLat * Math.sin(a)]); }
+  return pts;
+}
+const lerp = (a, b, u) => a + (b - a) * u;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = u => u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+function nearestAngle(prev, a) { while (a - prev > 180) a -= 360; while (a - prev < -180) a += 360; return a; }
+function fmtMi(m) { return m < 0.1 ? `${Math.round(m * 5280)} ft` : `${m.toFixed(1)} mi`; }
+
+// ---------- UI text ----------
+const P = CONFIG.property;
+document.getElementById("cardKicker").textContent = P.kicker;
+document.getElementById("cardTitle").textContent = P.title;
+document.getElementById("cardSub").textContent = `${P.price} · ${P.subtitle}`;
+document.getElementById("cardStats").innerHTML = P.stats.map(([v, l]) => `<div><b>${v}</b>${l}</div>`).join("");
+const badge = document.getElementById("badge");
+if (CONFIG.sample) badge.textContent = "Sample listing for demonstration"; else badge.remove();
+document.getElementById("endK").textContent = P.kicker;
+document.getElementById("endT").textContent = P.title;
+document.getElementById("endS").textContent = `${P.price} · ${P.subtitle}`;
+document.getElementById("endCta").textContent = CONFIG.endCta;
+const A = CONFIG.agent;
+document.getElementById("endAgent").textContent = [A.name, A.brokerage, A.phone].filter(Boolean).join(" · ");
+
+const places = CONFIG.places.map((p, i) => ({ ...p, i, dist: miles(P.coords, p.coords) }));
+
+// ---------- map ----------
+const map = new maplibregl.Map({
+  container: "map",
+  style: CONFIG.style,
+  center: P.coords, zoom: 13, pitch: 45, bearing: -20,
+  maxPitch: 75,
+  attributionControl: { compact: VIDEO ? false : true },
+  antialias: true,
+  fadeDuration: VIDEO ? 0 : 300,
+});
+if (!VIDEO) map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+
+// markers
+const pinEl = document.createElement("div");
+pinEl.className = "pin";
+pinEl.innerHTML = `<div class="tag">${P.price}</div><div class="stem"></div><div class="dot"></div>`;
+new maplibregl.Marker({ element: pinEl, anchor: "bottom" }).setLngLat(P.coords).addTo(map);
+const dotEl = pinEl.querySelector(".dot");
+
+places.forEach(p => {
+  const el = document.createElement("div");
+  el.className = "place";
+  el.innerHTML = `<div class="n">${p.i + 1}</div><div class="l">${p.name}</div>`;
+  p.el = el;
+  new maplibregl.Marker({ element: el, anchor: "left", offset: [-12, 0] }).setLngLat(p.coords).addTo(map);
+});
+
+function lineCoords(a, b, u, n = 64) {
+  const out = [];
+  const m = Math.max(1, Math.round(n * u));
+  for (let k = 0; k <= m; k++) { const s = (k / n); out.push([lerp(a[0], b[0], s), lerp(a[1], b[1], s)]); }
+  return out;
+}
+
+map.on("load", () => {
+  // rings
+  map.addSource("rings", { type: "geojson", data: { type: "FeatureCollection", features: CONFIG.rings.map(r => ({ type: "Feature", properties: { r }, geometry: { type: "LineString", coordinates: circle(P.coords, r) } })) } });
+  map.addLayer({ id: "rings", type: "line", source: "rings", paint: { "line-color": "#e8572a", "line-width": 2, "line-opacity": 0.55, "line-dasharray": [2, 2] } });
+  CONFIG.rings.forEach(r => {
+    const el = document.createElement("div"); el.className = "ring-label"; el.textContent = r === 0.5 ? "½ mi" : `${r} mi`;
+    new maplibregl.Marker({ element: el }).setLngLat([P.coords[0], P.coords[1] + r / 69.0]).addTo(map);
+  });
+
+  // beacon column over the property
+  map.addSource("beacon", { type: "geojson", data: { type: "Feature", geometry: { type: "Polygon", coordinates: [circle(P.coords, 0.012, 32)] } } });
+  map.addLayer({ id: "beacon", type: "fill-extrusion", source: "beacon", paint: { "fill-extrusion-color": "#e8572a", "fill-extrusion-height": 40, "fill-extrusion-opacity": 0.55 } });
+
+  // routes (straight-line spokes)
+  map.addSource("spokes", { type: "geojson", data: emptyFC() });
+  map.addLayer({ id: "spokes", type: "line", source: "spokes", layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": ["case", ["get", "active"], "#e8572a", "#2a7de8"], "line-width": ["case", ["get", "active"], 5, 3], "line-opacity": ["case", ["get", "active"], 0.95, 0.55] } });
+
+  // tint 3D buildings a bit warmer and slightly lift contrast
+  if (map.getLayer("building-3d")) map.setPaintProperty("building-3d", "fill-extrusion-opacity", 0.85);
+
+  buildTimeline();
+  window.tourDuration = DURATION;
+  window.renderAt = renderAt;
+  if (VIDEO) { applyAt(0); window.tourReady = true; }
+  else start();
+});
+function emptyFC() { return { type: "FeatureCollection", features: [] }; }
+
+// ---------- timeline ----------
+let KEYS = [], SEGS = [], DURATION = 0;
+function buildTimeline() {
+  const w = map.getContainer().clientWidth, h = map.getContainer().clientHeight;
+  const pad = { top: h * 0.22, bottom: h * 0.24, left: w * 0.12, right: w * 0.12 };
+  const all = [P.coords, ...places.map(p => p.coords)];
+  const b = all.reduce((bb, c) => bb.extend(c), new maplibregl.LngLatBounds(all[0], all[0]));
+  const ov = map.cameraForBounds(b, { padding: pad });
+  const ovC = [ov.center.lng, ov.center.lat];
+  const closeZ = 16.7;
+
+  let t = 0, bear = -25;
+  const K = (dt, center, zoom, pitch, bearing, lin = false) => { t += dt; bear = nearestAngle(bear, bearing); KEYS.push({ t, center, zoom, pitch, bearing: bear, lin }); };
+  KEYS.push({ t: 0, center: ovC, zoom: ov.zoom - 0.1, pitch: 35, bearing: bear });
+  SEGS.push({ a: 0, b: 3.5, k: "Neighborhood overview", t: P.subtitle, s: `${places.length} favorite spots nearby` });
+  K(3.5, ovC, ov.zoom + 0.15, 45, -10, true);
+  K(3.5, P.coords, closeZ, 62, 25);
+  SEGS.push({ a: 3.5, b: 13, k: P.kicker, t: P.title, s: `${P.price} · ${P.stats.map(s => s.join(" ")).join(" · ")}` });
+  K(6, P.coords, closeZ + 0.2, 64, 205, true);
+
+  places.forEach((p, i) => {
+    const s0 = t;
+    // Rotate so the line runs left (home) -> right (place), then size it to the screen width.
+    const lineB = bearingDeg(P.coords, p.coords);
+    const camB = lineB - 90;
+    const targetPx = w * (w > h ? 0.5 : 0.36);
+    const meters = p.dist * 1609.34;
+    const z = Math.min(16.2, Math.log2(40075016.686 * Math.cos(rad(P.coords[1])) * targetPx / (512 * meters)));
+    // nudge the centre toward the home so the place label on the right stays on screen
+    const f = w > h ? 0.42 : 0.34;
+    const ctr = [lerp(P.coords[0], p.coords[0], f), lerp(P.coords[1], p.coords[1], f)];
+    K(2.4, ctr, z, 55, camB);
+    K(1.8, ctr, z + 0.1, 57, camB + 6, true);
+    SEGS.push({ a: s0, b: t, k: `Nearby · ${p.type}`, t: p.name, s: `${fmtMi(p.dist)} away${p.dist <= 2 ? ` · ≈${Math.max(1, Math.round(p.dist * 20))} min walk` : ""} (straight line)`, place: i, la: s0 + 0.4, lb: s0 + 2.4 });
+  });
+
+  const s1 = t;
+  K(2.6, P.coords, closeZ - 0.3, 60, bear + 40);
+  K(5.4, P.coords, closeZ - 0.1, 62, bear + 160, true);
+  SEGS.push({ a: s1, b: t - 3.2, k: "Location, location", t: P.title, s: `${places.length} places within ${fmtMi(Math.max(...places.map(p => p.dist)))}` });
+  SEGS.push({ a: t - 3.2, b: t + 0.01, end: true });
+  DURATION = t;
+}
+
+function cameraAt(t) {
+  if (t <= KEYS[0].t) return KEYS[0];
+  for (let i = 1; i < KEYS.length; i++) {
+    const A = KEYS[i - 1], B = KEYS[i];
+    if (t <= B.t) {
+      const raw = (t - A.t) / (B.t - A.t);
+      const u = B.lin ? raw : ease(raw);
+      const dz = B.zoom - A.zoom;
+      // keep on-screen speed even while zooming (flyTo-like)
+      const uc = Math.abs(dz) < 1e-3 ? u : (1 - Math.pow(2, -dz * u)) / (1 - Math.pow(2, -dz));
+      return { center: [lerp(A.center[0], B.center[0], uc), lerp(A.center[1], B.center[1], uc)], zoom: lerp(A.zoom, B.zoom, u), pitch: lerp(A.pitch, B.pitch, u), bearing: lerp(A.bearing, B.bearing, u) };
+    }
+  }
+  return KEYS[KEYS.length - 1];
+}
+
+const capEl = document.getElementById("caption"), capK = document.getElementById("capK"), capT = document.getElementById("capT"), capS = document.getElementById("capS");
+const endEl = document.getElementById("endcard"), bar = document.getElementById("bar");
+let lastSeg = null;
+
+function applyAt(t) {
+  const c = cameraAt(t);
+  map.jumpTo({ center: c.center, zoom: c.zoom, pitch: c.pitch, bearing: c.bearing });
+
+  const seg = SEGS.find(s => t >= s.a && t < s.b) || SEGS[SEGS.length - 1];
+  if (seg !== lastSeg) {
+    lastSeg = seg;
+    if (seg.end) { capEl.style.opacity = 0; }
+    else { capEl.style.opacity = 1; capK.textContent = seg.k; capT.textContent = seg.t; capS.textContent = seg.s; }
+    places.forEach(p => p.el.classList.toggle("active", seg.place === p.i));
+  }
+  // end card fade
+  const endSeg = SEGS[SEGS.length - 1];
+  endEl.style.opacity = clamp((t - endSeg.a) / 0.8);
+
+  // spokes: completed ones stay, the active one draws in
+  const feats = [];
+  SEGS.forEach(s => {
+    if (s.place === undefined || t < s.la) return;
+    const p = places[s.place];
+    const u = clamp((t - s.la) / (s.lb - s.la));
+    feats.push({ type: "Feature", properties: { active: t < s.b }, geometry: { type: "LineString", coordinates: lineCoords(P.coords, p.coords, ease(u)) } });
+  });
+  map.getSource("spokes").setData({ type: "FeatureCollection", features: feats });
+
+  // pulse on the property dot, driven by t so video frames are deterministic
+  const ph = (t % 1.6) / 1.6;
+  dotEl.style.boxShadow = `0 0 0 ${Math.round(ph * 16)}px rgba(232,87,42,${(0.6 * (1 - ph)).toFixed(2)})`;
+  map.setPaintProperty("beacon", "fill-extrusion-height", 30 + 15 * Math.sin(t * 2.2));
+
+  bar.style.width = `${(100 * t / DURATION).toFixed(2)}%`;
+}
+
+// deterministic frame render for video capture
+function renderAt(t) {
+  applyAt(t);
+  return new Promise(res => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; res(); } };
+    map.once("idle", finish);
+    map.triggerRepaint();
+    setTimeout(finish, 8000);
+  });
+}
+
+// ---------- interactive playback ----------
+let playing = false, tNow = 0, lastTs = null, exploring = false;
+const btnPlay = document.getElementById("btnPlay"), btnRestart = document.getElementById("btnRestart"), btnExplore = document.getElementById("btnExplore");
+function tick(ts) {
+  if (!playing) return;
+  if (lastTs !== null) tNow += (ts - lastTs) / 1000;
+  lastTs = ts;
+  if (tNow >= DURATION) { tNow = DURATION; applyAt(tNow); setPlaying(false); return; }
+  applyAt(tNow);
+  requestAnimationFrame(tick);
+}
+function setPlaying(v) {
+  playing = v; lastTs = null;
+  btnPlay.textContent = v ? "Pause" : (tNow >= DURATION ? "Replay" : "Play");
+  if (v) { exploring = false; btnExplore.textContent = "Explore"; if (tNow >= DURATION) tNow = 0; requestAnimationFrame(tick); }
+}
+function start() {
+  if (reduceMotion) { tNow = DURATION; applyAt(tNow); endEl.style.opacity = 0; setPlaying(false); return; }
+  setPlaying(true);
+}
+btnPlay.onclick = () => setPlaying(!playing);
+btnRestart.onclick = () => { tNow = 0; setPlaying(true); };
+btnExplore.onclick = () => {
+  exploring = !exploring;
+  if (exploring) { setPlaying(false); endEl.style.opacity = 0; capEl.style.opacity = 0; btnExplore.textContent = "Back to tour"; map.easeTo({ center: P.coords, zoom: 15, pitch: 55, duration: 1200 }); }
+  else { btnExplore.textContent = "Explore"; capEl.style.opacity = 1; applyAt(tNow); }
+};
+// pause the tour as soon as the viewer grabs the map
+["mousedown", "touchstart", "wheel"].forEach(ev => map.getCanvas().addEventListener(ev, () => {
+  if (playing) { setPlaying(false); endEl.style.opacity = 0; }
+}, { passive: true }));
+</script>
+</body>
+</html>
