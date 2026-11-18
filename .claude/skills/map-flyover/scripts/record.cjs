@@ -39,7 +39,7 @@ const LOCAL_ML = opt('--maplibre', null);
   }
   await browser.close();
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(dir, '%05d.jpg'),
-    '-vf', `scale=${W}:${H}:flags=lanczos`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out]);
+    '-vf', `scale=${W}:${H}:flags=lanczos`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '26', '-maxrate', '6M', '-bufsize', '12M', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out]);
   fs.rmSync(dir, { recursive: true, force: true });
   console.log('Saved', out);
 })().catch(e => { console.error(e); process.exit(1); });
